@@ -1,0 +1,2 @@
+# Entry to add to arch/x86/entry/syscalls/syscall_64.tbl for cooperative yield
+548    common  coop_yield             sys_coop_yield
