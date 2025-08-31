@@ -1,6 +1,8 @@
 param(
   [string]$Version = "rootfs-2025-08-31",
-  [string]$AssetBase = "kali-rootfs-rolling-2025-08-31.img.zst",
+  [ValidateSet("amd64","arm64")]
+  [string]$Arch = "amd64",
+  [string]$AssetBase = "",
   [string]$OutDir = "C:\\KaliSync",
   [string]$OwnerRepo = "3xecutablefile/test"
 )
@@ -13,8 +15,16 @@ function Write-ErrorLine($msg) { Write-Host "[ERROR] $msg" -ForegroundColor Red 
 
 Write-Info "Owner/Repo: $OwnerRepo"
 Write-Info "Release tag: $Version"
-Write-Info "Asset base: $AssetBase"
+Write-Info "Arch: $Arch"
 Write-Info "Output dir: $OutDir"
+
+# If AssetBase not provided, construct from Version+Arch using naming convention
+if ([string]::IsNullOrEmpty($AssetBase)) {
+  # Version like rootfs-YYYY-MM-DD
+  $date = ($Version -replace '^rootfs-','')
+  $AssetBase = "kali-rootfs-rolling-$date-$Arch.img.zst"
+}
+Write-Info "Asset base: $AssetBase"
 
 $UriBase = "https://github.com/$OwnerRepo/releases/download/$Version"
 $imgZst = Join-Path $OutDir $AssetBase
@@ -55,4 +65,3 @@ if ($LASTEXITCODE -ne 0 -or -not (Test-Path $imgRaw)) {
 }
 
 Write-Host "Rootfs ready at $imgRaw" -ForegroundColor Green
-

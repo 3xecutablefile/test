@@ -85,9 +85,9 @@ Rootfs images: AMD64 and ARM64
   - Intel/AMD Windows → amd64 image + x64 driver/daemon
   - Windows on ARM → arm64 image + arm64 driver/daemon
 - Download examples:
-  - AMD64: `./scripts/get-rootfs.ps1 -Version rootfs-YYYY-MM-DD -AssetBase kali-rootfs-rolling-YYYY-MM-DD-amd64.img.zst -OutDir C:\\KaliSync`
-  - ARM64: `./scripts/get-rootfs.ps1 -Version rootfs-YYYY-MM-DD -AssetBase kali-rootfs-rolling-YYYY-MM-DD-arm64.img.zst -OutDir C:\\KaliSync`
-- Local build on any Linux host (cross-arch supported):
+  - AMD64: `./scripts/get-rootfs.ps1 -Version rootfs-YYYY-MM-DD -Arch amd64 -OutDir C:\\KaliSync`
+  - ARM64: `./scripts/get-rootfs.ps1 -Version rootfs-YYYY-MM-DD -Arch arm64 -OutDir C:\\KaliSync`
+  - Local build on any Linux host (cross-arch supported):
   - `userspace/mkrootfs_kali.sh amd64 kali-rootfs-amd64.img 8192`
   - `userspace/mkrootfs_kali.sh arm64 kali-rootfs-arm64.img 6144`
 
@@ -96,3 +96,6 @@ Build targets (code)
 - Daemon (Rust):
   - x64: `cargo build --release`
   - ARM64: `rustup target add aarch64-pc-windows-msvc && cargo build --release --target aarch64-pc-windows-msvc`
+  - When packaging Releases, name artifacts distinctly, e.g.:
+    - `colinux-daemon-x64.exe` and `colinux-daemon-arm64.exe`
+    - Drivers: `colinux-x64.sys` and `colinux-arm64.sys` (+ .inf/.cat)
