@@ -64,3 +64,18 @@ Docs
 Notes
 - The storage and shared-memory paths are real; booting a guest Linux kernel is in progress. The end goal is mounting a Kali rootfs via `colx_vblk` and presenting a login over `colx_tty`.
 - Use raw images (`*.img`). VHDX requires a separate Virtual Disk API layer.
+
+Release rootfs images (optional)
+- We can publish compressed images as GitHub Release assets to keep the repo lean.
+- Expected assets (example tag `rootfs-2025-08-31`):
+  - `kali-rootfs-rolling-2025-08-31.img.zst`
+  - `kali-rootfs-rolling-2025-08-31.img.zst.sha256`
+- Download + verify + decompress on Windows:
+  - `./scripts/get-rootfs.ps1 -Version rootfs-2025-08-31 -AssetBase kali-rootfs-rolling-2025-08-31.img.zst -OutDir C:\KaliSync`
+  - Ensure `zstd.exe` is available (add to PATH or place at `scripts\bin\zstd.exe`).
+- Point `config\colinux.yaml`:
+  - `vblk_backing: "C:\\KaliSync\\kali-rootfs-rolling-2025-08-31.img"`
+
+Trust and provenance
+- Provide SHA256SUMS and, ideally, a detached signature (.sig) with a public key published in this repo.
+- Users can regenerate images locally via `userspace/mkrootfs_debian.sh` (or Kali variant) if they prefer not to trust binaries.
