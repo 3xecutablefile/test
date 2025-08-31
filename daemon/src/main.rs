@@ -54,6 +54,9 @@ fn console_main(cfg_path: &str) -> Result<()> {
         // cooperative yield
         std::thread::yield_now();
     }
+    // Stop console bridge before exiting
+    bridge.stop();
+    Ok(())
 }
 
 fn maybe_handle_cli() -> Option<anyhow::Result<()>> {

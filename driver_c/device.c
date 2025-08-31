@@ -2,6 +2,7 @@
 // handles IOCTLs via IRP_MJ_DEVICE_CONTROL and completes IRPs (some async).
 
 #include <ntddk.h>
+#include <wdmsec.h> // IoCreateDeviceSecure, SDDL_*
 #include "include/colinux_ioctls.h"
 
 #define TAG_COLX 'xlOC'
@@ -24,6 +25,8 @@ extern NTSTATUS CoLinuxHandleVttyPull(_In_ PIRP Irp, _In_ PIO_STACK_LOCATION Irp
 
 UNICODE_STRING g_DeviceName;
 UNICODE_STRING g_SymLink;
+// {8C5D2750-2E7B-4D1A-8C9C-3A874C8B6C10}
+static const GUID COLX_DEVICE_CLASS_GUID = {0x8c5d2750,0x2e7b,0x4d1a,{0x8c,0x9c,0x3a,0x87,0x4c,0x8b,0x6c,0x10}};
 
 void CoLinuxUnload(_In_ PDRIVER_OBJECT DriverObject) {
     UNREFERENCED_PARAMETER(DriverObject);
@@ -40,14 +43,27 @@ NTSTATUS DriverEntry(_In_ PDRIVER_OBJECT DriverObject, _In_ PUNICODE_STRING Regi
     RtlInitUnicodeString(&g_SymLink,   L"\\DosDevices\\coLinux");
 
     PDEVICE_OBJECT device = NULL;
-    NTSTATUS status = IoCreateDevice(
+    // Create device with secure SDDL (Admin/System only). Fallback to IoCreateDevice if unavailable.
+    NTSTATUS status = IoCreateDeviceSecure(
         DriverObject,
         0, // no device extension for now
         &g_DeviceName,
         FILE_DEVICE_UNKNOWN,
         FILE_DEVICE_SECURE_OPEN,
         FALSE,
+        &COLX_DEVICE_CLASS_GUID,
+        (PSECURITY_DESCRIPTOR)SDDL_DEVOBJ_SYS_ALL_ADM_ALL,
         &device);
+    if (!NT_SUCCESS(status)) {
+        status = IoCreateDevice(
+            DriverObject,
+            0,
+            &g_DeviceName,
+            FILE_DEVICE_UNKNOWN,
+            FILE_DEVICE_SECURE_OPEN,
+            FALSE,
+            &device);
+    }
     if (!NT_SUCCESS(status)) {
         return status;
     }

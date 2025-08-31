@@ -1,4 +1,6 @@
 use serde::{Deserialize, Serialize};
+use anyhow::{Context, Result, bail};
+use std::path::Path;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct SharedMount {
@@ -18,7 +20,18 @@ pub struct Config {
     pub tick_budget: u32,        // scheduler quantum
 }
 
-pub fn load(path: &str) -> anyhow::Result<Config> {
-    Ok(serde_yaml::from_str(&std::fs::read_to_string(path)?)?)
+pub fn load(path: &str) -> Result<Config> {
+    let raw = std::fs::read_to_string(path).with_context(|| format!("reading config: {}", path))?;
+    let cfg: Config = serde_yaml::from_str(&raw).context("parsing YAML")?;
+    validate(&cfg).context("config validation failed")?;
+    Ok(cfg)
 }
 
+pub fn validate(cfg: &Config) -> Result<()> {
+    if cfg.memory_mb < 256 || cfg.memory_mb > 65536 { bail!("memory_mb out of range (256..65536)"); }
+    if cfg.ringbuf_mb < 4 || cfg.ringbuf_mb > 1024 { bail!("ringbuf_mb out of range (4..1024)"); }
+    if cfg.vblk_queue_depth == 0 || cfg.vblk_queue_depth > 1024 { bail!("vblk_queue_depth out of range (1..1024)"); }
+    if cfg.tick_budget == 0 || cfg.tick_budget > 100_000 { bail!("tick_budget out of range (1..100000)"); }
+    if !Path::new(&cfg.vblk_backing).exists() { bail!("vblk_backing not found: {}", cfg.vblk_backing); }
+    Ok(())
+}
