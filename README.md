@@ -76,6 +76,7 @@ Help & scripts
 
 Docs
 - `docs/kali-kernel-build.md`: overlay experimental Linux front-ends and build a Debian/Kali kernel package (for guest-side experiments)
+- `docs/TROUBLESHOOTING.md`: common driver/service/rootfs issues and fixes
 
 Notes
 - The storage and shared-memory paths are real; booting a guest Linux kernel is in progress. The end goal is mounting a Kali rootfs via `colx_vblk` and presenting a login over `colx_tty`.
