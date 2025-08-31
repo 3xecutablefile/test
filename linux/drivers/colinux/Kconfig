@@ -1,0 +1,6 @@
+config COLINUX
+    tristate "coLinux cooperative kernel support"
+    help
+      Experimental front-end for cooperative Linux on Windows (coLinux 2.0).
+      Maps a shared memory region and exposes a misc device for testing.
+

@@ -1,0 +1,2 @@
+CLI UX: Prefer clap/yargs with strict parsing, helpful --help, descriptive errors, colored output behind NO_COLOR, and exit codes conforming to POSIX.
+

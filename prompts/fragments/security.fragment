@@ -1,0 +1,2 @@
+Security: Validate external inputs, guard secrets, principle of least privilege, avoid logging sensitive data, rotate tokens, and document threat model assumptions per feature.
+
