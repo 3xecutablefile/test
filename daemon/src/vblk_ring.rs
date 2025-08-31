@@ -1,26 +1,36 @@
 use crate::device::{Device, MapInfo};
 use anyhow::{bail, Result};
-use std::mem::{size_of};
+use std::mem::size_of;
 use std::ptr::NonNull;
 
 const VBLK_RING_OFF: usize = 0x1000;
-const VBLK_DATA_OFF: usize = 0x2000;
-const VBLK_DATA_MAX: usize = 128 * 1024;
+const VBLK_DATA_OFF: usize = 0x4000;
+const VBLK_SLOT_DATA_STRIDE: usize = 128 * 1024;
 
 const OP_READ: u8 = 0;
 const OP_WRITE: u8 = 1;
 
-#[repr(C)]
-struct RingIdx { prod: u32, cons: u32 }
+const ST_OK: u8 = 0;
+const ST_EINVAL: u8 = 1;
+const ST_EIO: u8 = 5;
 
 #[repr(C)]
-struct VblkReq {
+struct RingCtrl {
+    prod: u32,
+    cons: u32,
+    cap: u32,
+    slot_size: u32,
+}
+
+#[repr(C)]
+struct VblkSlot {
     id: u64,
     op: u8,
-    _pad: [u8;7],
+    status: u8,
+    _pad: u16,
     lba: u64,
     len: u32,
-    status: u32,
+    data_off: u32,
 }
 
 pub struct VblkRing<'a> {
@@ -44,29 +54,36 @@ impl<'a> VblkRing<'a> {
 
     pub fn pump(&self) -> Result<()> {
         unsafe {
-            let idx = &mut *self.ptr::<RingIdx>(VBLK_RING_OFF);
-            let req = &mut *self.ptr::<VblkReq>(VBLK_RING_OFF + size_of::<RingIdx>());
-            while idx.prod != idx.cons {
-                let len = req.len as usize;
-                if len == 0 || len > VBLK_DATA_MAX || (len & 511) != 0 { req.status = 2; idx.cons = idx.cons.wrapping_add(1); continue; }
-                let lba = req.lba;
-                let data = core::slice::from_raw_parts_mut(self.ptr::<u8>(VBLK_DATA_OFF), len);
-                match req.op {
-                    OP_READ => {
-                        let out = self.dev.vblk_read_sync(lba, req.len, std::time::Duration::from_secs(2))?;
-                        data[..out.len()].copy_from_slice(&out);
-                        req.status = 1;
-                    }
-                    OP_WRITE => {
-                        self.dev.vblk_write_sync(lba, data, std::time::Duration::from_secs(2))?;
-                        req.status = 1;
-                    }
-                    _ => req.status = 3,
+            let ctrl = &mut *self.ptr::<RingCtrl>(VBLK_RING_OFF);
+            let cap = ctrl.cap as usize;
+            let slots_base = self.ptr::<u8>(VBLK_RING_OFF + size_of::<RingCtrl>()) as *mut VblkSlot;
+            while ctrl.prod != ctrl.cons {
+                let idx = (ctrl.cons % (cap as u32)) as usize;
+                let slot = &mut *slots_base.add(idx);
+                // validate
+                let len = slot.len as usize;
+                let data_off = slot.data_off as usize;
+                if len == 0 || (len & 511) != 0 || len > VBLK_SLOT_DATA_STRIDE || data_off + len > (VBLK_SLOT_DATA_STRIDE * cap) {
+                    slot.status = ST_EINVAL;
+                    ctrl.cons = ctrl.cons.wrapping_add(1);
+                    continue;
                 }
-                idx.cons = idx.cons.wrapping_add(1);
+                let lba = slot.lba;
+                let data_ptr = self.ptr::<u8>(VBLK_DATA_OFF + data_off);
+                let data = core::slice::from_raw_parts_mut(data_ptr, len);
+                // service
+                let res = match slot.op {
+                    OP_READ => self.dev.vblk_read_sync(lba, slot.len, std::time::Duration::from_secs(2)).map(|out| {
+                        let n = out.len().min(len);
+                        data[..n].copy_from_slice(&out[..n]);
+                    }),
+                    OP_WRITE => self.dev.vblk_write_sync(lba, data, std::time::Duration::from_secs(2)).map(|_| {}),
+                    _ => { slot.status = ST_EINVAL; ctrl.cons = ctrl.cons.wrapping_add(1); continue; }
+                };
+                slot.status = if res.is_ok() { ST_OK } else { ST_EIO };
+                ctrl.cons = ctrl.cons.wrapping_add(1);
             }
         }
         Ok(())
     }
 }
-

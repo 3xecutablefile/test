@@ -15,29 +15,39 @@ struct colx_ring_hdr {
 
 #define COLX_VER_1 1
 
-/* Offsets within the shared mapping for simple prototype rings */
-#define COLX_VBLK_RING_OFF  0x1000
-#define COLX_VBLK_DATA_OFF  0x2000
-#define COLX_VBLK_DATA_MAX  (128 * 1024)
+/* Status codes (align loosely with errno on Linux) */
+#define COLX_ST_OK      0
+#define COLX_ST_EINVAL  1
+#define COLX_ST_EIO     5
+#define COLX_ST_ENOSPC  28
+#define COLX_ST_ETIME   62
+
+/* Offsets within the shared mapping for VBLK rings */
+#define COLX_VBLK_RING_OFF   0x1000
+#define COLX_VBLK_DATA_OFF   0x4000
+#define COLX_VBLK_SLOT_DATA_STRIDE (128 * 1024)
 
 /* VBLK opcodes */
 #define COLX_VBLK_OP_READ   0
 #define COLX_VBLK_OP_WRITE  1
 
-/* VBLK ring indices */
-struct colx_ring_idx {
-    __u32 prod; /* producer increments on submit */
-    __u32 cons; /* consumer increments on complete */
+/* Generic ring control (single producer/consumer) */
+struct colx_ring_ctrl {
+    __u32 prod;      /* producer increments on submit */
+    __u32 cons;      /* consumer increments on complete */
+    __u32 cap;       /* number of slots */
+    __u32 slot_size; /* sizeof(struct colx_vblk_slot) */
 };
 
-/* VBLK request/response (single-slot prototype) */
-struct colx_vblk_req {
+/* VBLK ring slot (metadata) */
+struct colx_vblk_slot {
     __u64 id;      /* opaque */
     __u8  op;      /* COLX_VBLK_OP_* */
-    __u8  _pad[7];
+    __u8  status;  /* COLX_ST_* */
+    __u16 _rsvd;
     __u64 lba;     /* sector units (512B) */
-    __u32 len;     /* bytes, multiple of 512, <= COLX_VBLK_DATA_MAX */
-    __u32 status;  /* 0 = pending, 1 = ok, else errno-like */
+    __u32 len;     /* bytes, multiple of 512, <= stride */
+    __u32 data_off;/* offset from COLX_VBLK_DATA_OFF to data */
 };
 
 /* VTTY byte rings (prototype) */

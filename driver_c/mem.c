@@ -60,6 +60,23 @@ typedef struct _RING_HEADER {
     ULONG ping_resp;
 } RING_HEADER, *PRING_HEADER;
 
+typedef struct _RING_CTRL {
+    ULONG prod;
+    ULONG cons;
+    ULONG cap;
+    ULONG slot_size;
+} RING_CTRL, *PRING_CTRL;
+
+typedef struct _VBLK_SLOT {
+    ULONGLONG id;
+    UCHAR op;
+    UCHAR status;
+    USHORT rsvd;
+    ULONGLONG lba;
+    ULONG len;
+    ULONG data_off;
+} VBLK_SLOT, *PVBLK_SLOT;
+
 NTSTATUS CoLinuxHandleMapShared(_In_ PIRP Irp, _In_ PIO_STACK_LOCATION IrpSp) {
     if (IrpSp->Parameters.DeviceIoControl.InputBufferLength < sizeof(ULONG) ||
         IrpSp->Parameters.DeviceIoControl.OutputBufferLength < sizeof(MAP_INFO_OUT) ||
@@ -135,6 +152,17 @@ NTSTATUS CoLinuxHandleMapShared(_In_ PIRP Irp, _In_ PIO_STACK_LOCATION IrpSp) {
     if (kbase && kview >= sizeof(RING_HEADER)) {
         PRING_HEADER hdr = (PRING_HEADER)kbase;
         hdr->ver = 1; hdr->flags = 0; hdr->tick_count = 0; hdr->ping_req = 0; hdr->ping_resp = 0;
+    }
+
+    // Initialize VBLK ring control (multi-slot) at COLX_VBLK_RING_OFF
+    if (kbase && kview >= (0x1000 + sizeof(RING_CTRL))) {
+        PRING_CTRL ctrl = (PRING_CTRL)((PUCHAR)kbase + 0x1000);
+        ctrl->prod = 0; ctrl->cons = 0; ctrl->cap = 8; ctrl->slot_size = sizeof(VBLK_SLOT);
+        // Zero slots area just after ctrl
+        SIZE_T slots_bytes = ctrl->cap * ctrl->slot_size;
+        if (kview >= (0x1000 + sizeof(RING_CTRL) + slots_bytes)) {
+            RtlZeroMemory((PUCHAR)ctrl + sizeof(RING_CTRL), slots_bytes);
+        }
     }
 
     PMAP_INFO_OUT out = (PMAP_INFO_OUT)Irp->AssociatedIrp.SystemBuffer;
