@@ -79,3 +79,20 @@ Release rootfs images (optional)
 Trust and provenance
 - Provide SHA256SUMS and, ideally, a detached signature (.sig) with a public key published in this repo.
 - Users can regenerate images locally via `userspace/mkrootfs_debian.sh` (or Kali variant) if they prefer not to trust binaries.
+
+Rootfs images: AMD64 and ARM64
+- We publish both arches. Pick the one that matches your Windows CPU:
+  - Intel/AMD Windows → amd64 image + x64 driver/daemon
+  - Windows on ARM → arm64 image + arm64 driver/daemon
+- Download examples:
+  - AMD64: `./scripts/get-rootfs.ps1 -Version rootfs-YYYY-MM-DD -AssetBase kali-rootfs-rolling-YYYY-MM-DD-amd64.img.zst -OutDir C:\\KaliSync`
+  - ARM64: `./scripts/get-rootfs.ps1 -Version rootfs-YYYY-MM-DD -AssetBase kali-rootfs-rolling-YYYY-MM-DD-arm64.img.zst -OutDir C:\\KaliSync`
+- Local build on any Linux host (cross-arch supported):
+  - `userspace/mkrootfs_kali.sh amd64 kali-rootfs-amd64.img 8192`
+  - `userspace/mkrootfs_kali.sh arm64 kali-rootfs-arm64.img 6144`
+
+Build targets (code)
+- Driver (WDK): build x64 and arm64 if you plan to support Windows on ARM; ship both `.sys`/`.inf`.
+- Daemon (Rust):
+  - x64: `cargo build --release`
+  - ARM64: `rustup target add aarch64-pc-windows-msvc && cargo build --release --target aarch64-pc-windows-msvc`
