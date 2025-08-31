@@ -4,7 +4,7 @@ Rust-first cooperative Linux on Windows: kernel driver (vblk/vtty), IOCP-based d
 
 Project link: https://github.com/3xecutablefile/test
 
-Install (Windows 10/11)
+Install (Windows 10/11 on Intel/AMD)
 - Requirements:
   - Windows 10 1809+ (for ConPTY) or Windows 11
   - Administrator PowerShell for driver install/start
@@ -37,14 +37,11 @@ Install (Windows 10/11)
      - Install/start: `./scripts/install-service.ps1` then `./scripts/start-daemon.ps1`
      - Stop/uninstall: `./scripts/uninstall-service.ps1`
 
-Prepare a rootfs (raw image)
-- Debian (WSL/Linux host):
-  - `cd userspace && sudo ./mkrootfs_debian.sh`
-  - Move the produced `debian-rootfs.img` to Windows (e.g., `C:\KaliSync\debian-rootfs.img`)
+Prepare a rootfs (raw image, amd64 only)
+- Build locally on a Linux host (WSL OK):
+  - `cd userspace && sudo ./mkrootfs_kali.sh` (creates `kali-rootfs-amd64.img`)
+  - Move it to Windows (e.g., `C:\\KaliSync\\kali-rootfs-amd64.img`)
   - Point `config/colinux.yaml -> vblk_backing` to that path
-- Kali (WSL/Linux host):
-  - Use debootstrap with Kali repos (see Kali docs) or adapt the Debian script
-  - Ensure you create a raw ext4 image (not VHDX) and update `vblk_backing`
 
 Smoke tests
 - Daemon I/O path only (no guest kernel yet):
@@ -65,37 +62,24 @@ Notes
 - The storage and shared-memory paths are real; booting a guest Linux kernel is in progress. The end goal is mounting a Kali rootfs via `colx_vblk` and presenting a login over `colx_tty`.
 - Use raw images (`*.img`). VHDX requires a separate Virtual Disk API layer.
 
-Release rootfs images (optional)
-- We can publish compressed images as GitHub Release assets to keep the repo lean.
-- Expected assets (example tag `rootfs-2025-08-31`):
-  - `kali-rootfs-rolling-2025-08-31.img.zst`
-  - `kali-rootfs-rolling-2025-08-31.img.zst.sha256`
+Rootfs images (optional prebuilt, amd64 only)
+- We publish compressed images as GitHub Release assets to keep the repo lean.
+- Expected assets (example tag `rootfs-2025-09-01`):
+  - `kali-rootfs-rolling-2025-09-01-amd64.img.zst`
+  - `kali-rootfs-rolling-2025-09-01-amd64.img.zst.sha256`
 - Download + verify + decompress on Windows:
-  - `./scripts/get-rootfs.ps1 -Version rootfs-2025-08-31 -AssetBase kali-rootfs-rolling-2025-08-31.img.zst -OutDir C:\KaliSync`
-  - Ensure `zstd.exe` is available (add to PATH or place at `scripts\bin\zstd.exe`).
-- Point `config\colinux.yaml`:
-  - `vblk_backing: "C:\\KaliSync\\kali-rootfs-rolling-2025-08-31.img"`
+  - `./scripts/get-rootfs.ps1 -Version rootfs-2025-09-01 -AssetBase kali-rootfs-rolling-2025-09-01-amd64.img.zst -OutDir C:\\KaliSync`
+  - Ensure `zstd.exe` is available (add to PATH or place at `scripts\\bin\\zstd.exe`).
+- Point `config\\colinux.yaml`:
+  - `vblk_backing: "C:\\KaliSync\\kali-rootfs-rolling-2025-09-01-amd64.img"`
 
 Trust and provenance
 - Provide SHA256SUMS and, ideally, a detached signature (.sig) with a public key published in this repo.
 - Users can regenerate images locally via `userspace/mkrootfs_debian.sh` (or Kali variant) if they prefer not to trust binaries.
 
-Rootfs images: AMD64 and ARM64
-- We publish both arches. Pick the one that matches your Windows CPU:
-  - Intel/AMD Windows → amd64 image + x64 driver/daemon
-  - Windows on ARM → arm64 image + arm64 driver/daemon
-- Download examples:
-  - AMD64: `./scripts/get-rootfs.ps1 -Version rootfs-YYYY-MM-DD -Arch amd64 -OutDir C:\\KaliSync`
-  - ARM64: `./scripts/get-rootfs.ps1 -Version rootfs-YYYY-MM-DD -Arch arm64 -OutDir C:\\KaliSync`
-  - Local build on any Linux host (cross-arch supported):
-  - `userspace/mkrootfs_kali.sh amd64 kali-rootfs-amd64.img 8192`
-  - `userspace/mkrootfs_kali.sh arm64 kali-rootfs-arm64.img 6144`
+Rootfs images: AMD64 only
+coLinux 2.0 currently targets Intel/AMD Windows 10/11 (x86_64) only.
 
 Build targets (code)
-- Driver (WDK): build x64 and arm64 if you plan to support Windows on ARM; ship both `.sys`/`.inf`.
-- Daemon (Rust):
-  - x64: `cargo build --release`
-  - ARM64: `rustup target add aarch64-pc-windows-msvc && cargo build --release --target aarch64-pc-windows-msvc`
-  - When packaging Releases, name artifacts distinctly, e.g.:
-    - `colinux-daemon-x64.exe` and `colinux-daemon-arm64.exe`
-    - Drivers: `colinux-x64.sys` and `colinux-arm64.sys` (+ .inf/.cat)
+- Driver (WDK): build x64 (amd64) only and ship `.sys`/`.inf`.
+- Daemon (Rust): `cargo build --release` (x86_64-pc-windows-msvc)
