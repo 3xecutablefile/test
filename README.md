@@ -1,5 +1,7 @@
 # coLinux 2.0
 
+> AMD64-only: Targets Intel/AMD Windows 10/11 (x86_64). No ARM.
+
 Rust-first cooperative Linux on Windows: kernel driver (vblk/vtty), IOCP-based daemon, and experimental Linux front-ends. This repo is a work-in-progress toward booting a Kali rootfs via colx_vblk and presenting a login over colx_tty.
 
 Project link: https://github.com/3xecutablefile/test
@@ -55,8 +57,7 @@ Help & scripts
 - `scripts/start-daemon.ps1`: start service if present, otherwise run console daemon
 
 Docs
-- `docs/debian-rootfs.md`: build a Debian raw image
-- `docs/kali-kernel-build.md`: overlay experimental Linux front-ends and build a Debian/Kali kernel package
+- `docs/kali-kernel-build.md`: overlay experimental Linux front-ends and build a Debian/Kali kernel package (for guest-side experiments)
 
 Notes
 - The storage and shared-memory paths are real; booting a guest Linux kernel is in progress. The end goal is mounting a Kali rootfs via `colx_vblk` and presenting a login over `colx_tty`.
@@ -75,7 +76,7 @@ Rootfs images (optional prebuilt, amd64 only)
 
 Trust and provenance
 - Provide SHA256SUMS and, ideally, a detached signature (.sig) with a public key published in this repo.
-- Users can regenerate images locally via `userspace/mkrootfs_debian.sh` (or Kali variant) if they prefer not to trust binaries.
+- Users can regenerate images locally via `userspace/mkrootfs_kali.sh` if they prefer not to trust binaries.
 
 Rootfs images: AMD64 only
 coLinux 2.0 currently targets Intel/AMD Windows 10/11 (x86_64) only.
