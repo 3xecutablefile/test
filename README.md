@@ -39,11 +39,18 @@ Install (Windows 10/11 on Intel/AMD)
      - Install/start: `./scripts/install-service.ps1` then `./scripts/start-daemon.ps1`
      - Stop/uninstall: `./scripts/uninstall-service.ps1`
 
-Prepare a rootfs (raw image, amd64 only)
-- Build locally on a Linux host (WSL OK):
-  - `cd userspace && sudo ./mkrootfs_kali.sh` (creates `kali-rootfs-amd64.img`)
-  - Move it to Windows (e.g., `C:\\KaliSync\\kali-rootfs-amd64.img`)
-  - Point `config/colinux.yaml -> vblk_backing` to that path
+Prepare a rootfs (amd64, manual download)
+- Download from the Releases page (amd64 only):
+  - `kali-rootfs-rolling-YYYY-MM-DD-amd64.img.zst`
+  - `kali-rootfs-rolling-YYYY-MM-DD-amd64.img.zst.sha256`
+- Verify SHA256 in PowerShell:
+  - `$asset = "C:\\KaliSync\\kali-rootfs-rolling-YYYY-MM-DD-amd64.img.zst"`
+  - `$sha = (Get-Content "$asset.sha256").Split(' ')[0].ToLower()`
+  - `$hash = (Get-FileHash $asset -Algorithm SHA256).Hash.ToLower()`
+  - `if ($sha -ne $hash) { throw "SHA mismatch" }`
+- Decompress to raw .img:
+  - zstd: `zstd -d -f $asset -o ($asset -replace '\\.zst$','')` (install zstd.exe or use 7‑Zip)
+- Set `config/colinux.yaml -> vblk_backing` to the decompressed `.img` path
 
 Smoke tests
 - Daemon I/O path only (no guest kernel yet):
@@ -63,16 +70,12 @@ Notes
 - The storage and shared-memory paths are real; booting a guest Linux kernel is in progress. The end goal is mounting a Kali rootfs via `colx_vblk` and presenting a login over `colx_tty`.
 - Use raw images (`*.img`). VHDX requires a separate Virtual Disk API layer.
 
-Rootfs images (optional prebuilt, amd64 only)
+Rootfs images (Releases, amd64 only)
 - We publish compressed images as GitHub Release assets to keep the repo lean.
 - Expected assets (example tag `rootfs-2025-09-01`):
   - `kali-rootfs-rolling-2025-09-01-amd64.img.zst`
   - `kali-rootfs-rolling-2025-09-01-amd64.img.zst.sha256`
-- Download + verify + decompress on Windows:
-  - `./scripts/get-rootfs.ps1 -Version rootfs-2025-09-01 -AssetBase kali-rootfs-rolling-2025-09-01-amd64.img.zst -OutDir C:\\KaliSync`
-  - Ensure `zstd.exe` is available (add to PATH or place at `scripts\\bin\\zstd.exe`).
-- Point `config\\colinux.yaml`:
-  - `vblk_backing: "C:\\KaliSync\\kali-rootfs-rolling-2025-09-01-amd64.img"`
+  (See “Prepare a rootfs” for verify + decompress and `vblk_backing` setup.)
 
 Trust and provenance
 - Provide SHA256SUMS and, ideally, a detached signature (.sig) with a public key published in this repo.

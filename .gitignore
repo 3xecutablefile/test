@@ -1,0 +1,23 @@
+# Rust
+/target/
+**/target/
+**/*.rs.bk
+
+# Windows
+Thumbs.db
+*.pdb
+
+# Images & large binaries (do not commit)
+*.img
+*.img.zst
+*.iso
+*.vhdx
+
+# VS/WDK
+*.user
+*.opensdf
+*.sdf
+*.opendb
+*.VC.db
+ipch/
+
