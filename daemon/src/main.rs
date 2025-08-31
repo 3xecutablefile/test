@@ -5,6 +5,7 @@ mod logging;
 mod service;   // Windows Service wrapper
 mod vblk;      // VBLK ring/dispatcher
 mod vblk_ring; // VBLK shared ring service
+mod console;   // VTTY console bridge
 // vtty via device.rs helpers
 
 use anyhow::Result;
@@ -27,6 +28,10 @@ fn console_main(cfg_path: &str) -> Result<()> {
     let map = dev.map_shared_sync(pages, Duration::from_secs(2))?;
     tracing::info!(user_base = format!("0x{:x}", map.user_base).as_str(), size = map.size, "Mapped shared memory");
     let vblk_ring = vblk_ring::VblkRing::new(&dev, map)?;
+
+    // Start console bridge (stdin/stdout <-> vtty)
+    let mut bridge = console::ConsoleBridge::new(&dev);
+    bridge.start()?;
 
     // Main loop: ticks + (placeholder) vblk pump
     let mut last_pump = Instant::now();
