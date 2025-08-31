@@ -6,6 +6,17 @@ Rust-first cooperative Linux on Windows: kernel driver (vblk/vtty), IOCP-based d
 
 Project link: https://github.com/3xecutablefile/test
 
+Quickstart (TL;DR)
+- Open an elevated PowerShell (Run as Administrator).
+- Clone: `git clone https://github.com/3xecutablefile/test.git && cd test`
+- Enable dev test signing: `./scripts/sign-test-cert.ps1` (reboot if prompted)
+- Build/install driver: `./scripts/install-driver.ps1`
+- Download rootfs (Releases → amd64 `.img.zst` + `.sha256` → save under `C:\KaliSync`) and verify/decompress (see below).
+- Configure: set `vblk_backing` in `config\colinux.yaml` to your decompressed `.img`.
+- Build daemon: `cd daemon && cargo fmt -- --check && cargo clippy -- -D warnings && cargo build --release`
+- Run daemon (console): `..\daemon\target\release\colinux-daemon.exe ..\config\colinux.yaml`
+- Or install service: `..\scripts\install-service.ps1` then `..\scripts\start-daemon.ps1`
+
 Install (Windows 10/11 on Intel/AMD)
 - Requirements:
   - Windows 10 1809+ (for ConPTY) or Windows 11
@@ -87,3 +98,14 @@ coLinux 2.0 currently targets Intel/AMD Windows 10/11 (x86_64) only.
 Build targets (code)
 - Driver (WDK): build x64 (amd64) only and ship `.sys`/`.inf`.
 - Daemon (Rust): `cargo build --release` (x86_64-pc-windows-msvc)
+
+Contributing (commit & push)
+- Configure Git (first time only):
+  - `git config user.name "Your Name"`
+  - `git config user.email "you@example.com"`
+- Create a branch: `git checkout -b feature/your-change`
+- Make edits, then:
+  - `git add -A`
+  - `git commit -m "feat: describe your change"`
+  - `git push -u origin feature/your-change`
+- Open a Pull Request on GitHub.
