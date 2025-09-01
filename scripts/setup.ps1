@@ -5,7 +5,6 @@ param(
   [string]$Profiles = "Private,Domain", # firewall profile scope
   [string]$AllowFrom = "",            # optional CIDR/CIDRs to restrict remote sources
   [switch]$OpenWebPorts,               # convenience: open 80,443,8080
-  [switch]$Public,                     # convenience: include Public profile
   [string]$Memory = "",               # e.g., 8GB (optional)
   [string]$Processors = "",           # e.g., 4 (optional)
   [string]$RepoUrl = "",              # Optional: clone this repo first
@@ -120,7 +119,6 @@ function Remove-CoLinuxFirewallRules {
 $effectivePorts = @()
 if ($OpenWebPorts) { $effectivePorts = @('80','443','8080') }
 if ($OpenPorts.Count -gt 0) { $effectivePorts = $OpenPorts }
-if ($Public) { $Profiles = 'Private,Domain,Public' }
 Add-CoLinuxFirewallRules -Ports $effectivePorts -Profiles $Profiles -AllowFrom $AllowFrom
 
 Write-Host "Creating PowerShell command shortcut: ex3cutableLinux"
