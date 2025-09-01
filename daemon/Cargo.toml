@@ -2,6 +2,7 @@
 name = "colinux-daemon"
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.79"
 
 [dependencies]
 anyhow = "1"
@@ -14,6 +15,9 @@ bytes = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "io-std", "net", "time", "sync"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4"] }
+
+[target.'cfg(windows)'.dependencies]
 windows = { version = "0.58.0", features = [
   "Win32_Foundation",
   "Win32_System_IO",
@@ -23,5 +27,4 @@ windows = { version = "0.58.0", features = [
   "Win32_System_WindowsProgramming",
   "Win32_System_Diagnostics_Debug",
 ] }
-windows-service = { version = "0.6", features = ["eventlog"] }
-uuid = { version = "1", features = ["v4"] }
+windows-service = { version = "0.6" }

@@ -1,14 +1,27 @@
+#![cfg_attr(not(windows), allow(dead_code))]
+
+#[cfg(windows)]
 use anyhow::Result;
+#[cfg(windows)]
 use colinux_daemon::device::Device; // if crate name differs, adjust use path
 
+#[cfg(windows)]
 fn main() -> Result<()> {
     // Accept optional cfg path
-    let cfg_path = std::env::args().nth(1).unwrap_or_else(|| "config/colinux.yaml".into());
+    let cfg_path = std::env::args()
+        .nth(1)
+        .unwrap_or_else(|| "config/colinux.yaml".into());
 
     // Use the library modules directly
     runner(&cfg_path)
 }
 
+#[cfg(not(windows))]
+fn main() {
+    eprintln!("smoke tool is Windows-only; skip on non-Windows.");
+}
+
+#[cfg(windows)]
 fn runner(cfg_path: &str) -> Result<()> {
     let cfg = colinux_daemon::config::load(cfg_path)?;
     let dev = Device::open()?;
@@ -19,13 +32,21 @@ fn runner(cfg_path: &str) -> Result<()> {
     // Map shared
     let pages = (cfg.memory_mb as usize * 1024 * 1024 / 4096) as u32;
     let map = dev.map_shared_sync(pages, std::time::Duration::from_secs(2))?;
-    println!("mapped user_base=0x{:x} size={} ver={} flags={}",
-        map.user_base, map.size, map.ver, map.flags);
+    println!(
+        "mapped user_base=0x{:x} size={} ver={} flags={}",
+        map.user_base, map.size, map.ver, map.flags
+    );
 
     // Ping: write ping_req++, run ticks until ping_resp matches
     unsafe {
         #[repr(C)]
-        struct RingHeader { ver:u32, flags:u32, tick_count:u64, ping_req:u32, ping_resp:u32 }
+        struct RingHeader {
+            ver: u32,
+            flags: u32,
+            tick_count: u64,
+            ping_req: u32,
+            ping_resp: u32,
+        }
         let hdr = map.user_base as *mut RingHeader;
         if !hdr.is_null() {
             let seq = (*hdr).ping_req.wrapping_add(1);
@@ -34,9 +55,12 @@ fn runner(cfg_path: &str) -> Result<()> {
             let mut ok = false;
             while std::time::Instant::now() < deadline {
                 dev.run_tick_sync(cfg.tick_budget, std::time::Duration::from_millis(100))?;
-                if (*hdr).ping_resp == seq { ok = true; break; }
+                if (*hdr).ping_resp == seq {
+                    ok = true;
+                    break;
+                }
             }
-            println!("ping {}", if ok {"ok"} else {"timeout"});
+            println!("ping {}", if ok { "ok" } else { "timeout" });
         }
     }
 
@@ -44,12 +68,17 @@ fn runner(cfg_path: &str) -> Result<()> {
     let lba = 0x100u64;
     let len = 4096u32; // multiple of 512
     let mut data = vec![0u8; len as usize];
-    for (i, b) in data.iter_mut().enumerate() { *b = (i as u8).wrapping_mul(3).wrapping_add(1); }
+    for (i, b) in data.iter_mut().enumerate() {
+        *b = (i as u8).wrapping_mul(3).wrapping_add(1);
+    }
     dev.vblk_write_sync(lba, &data, std::time::Duration::from_secs(2))?;
 
     let out = dev.vblk_read_sync(lba, len, std::time::Duration::from_secs(2))?;
-    if out == data { println!("vblk r/w ok"); } else { println!("vblk r/w mismatch: got {} bytes", out.len()); }
+    if out == data {
+        println!("vblk r/w ok");
+    } else {
+        println!("vblk r/w mismatch: got {} bytes", out.len());
+    }
 
     Ok(())
 }
-

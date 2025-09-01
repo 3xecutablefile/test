@@ -1,9 +1,8 @@
 memory_mb: 2048
 ringbuf_mb: 64
-vblk_backing: "C:\\KaliSync\\kali-rootfs.vhdx"
+vblk_backing: "C:\\KaliSync\\kali-rootfs.img"
 vblk_queue_depth: 128
 vnet_mode: "bridge"
 console_mode: "winpty"
 shared: { host_path: "C:\\KaliSync\\shared", guest_path: "/mnt/win" }
 tick_budget: 5000
-

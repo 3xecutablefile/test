@@ -1,3 +1,5 @@
+#![cfg(windows)]
+
 use anyhow::Result;
 use crossbeam_channel::{bounded, Receiver};
 use std::time::Duration;
@@ -40,4 +42,3 @@ impl Vtty {
         Ok(out)
     }
 }
-

@@ -1,4 +1,6 @@
-use anyhow::{Result, Context};
+#![cfg(windows)]
+
+use anyhow::Result;
 use crossbeam_channel::{bounded, Receiver};
 use std::time::Duration;
 
@@ -7,12 +9,14 @@ use crate::iocp::{IoctlRequest, Reactor};
 // These constants must match the kernel driver's IOCTL codes (METHOD_BUFFERED)
 // CTL_CODE(FILE_DEVICE_UNKNOWN(0x22), 0x801.., METHOD_BUFFERED, FILE_ANY_ACCESS)
 const IOCTL_COLINUX_MAP_SHARED: u32 = 0x00222004; // 0x22 <<16 | 0x801<<2
-const IOCTL_COLINUX_RUN_TICK: u32 = 0x00222008;  // 0x22 <<16 | 0x802<<2
+const IOCTL_COLINUX_RUN_TICK: u32 = 0x00222008; // 0x22 <<16 | 0x802<<2
 const IOCTL_COLINUX_VBLK_SUBMIT: u32 = 0x0022200C; // 0x22 <<16 | 0x803<<2
 const IOCTL_COLINUX_VBLK_SET_BACKING: u32 = 0x00222010; // 0x22 <<16 | 0x804<<2
-// Direct I/O variants
-const IOCTL_COLINUX_VBLK_READ: u32  = 0x00222014; // 0x22<<16 | 0x805<<2 (METHOD_OUT_DIRECT)
-const IOCTL_COLINUX_VBLK_WRITE: u32 = 0x00222018; // 0x22<<16 | 0x806<<2 (METHOD_IN_DIRECT)
+                                                        // Direct I/O variants
+                                                        // Note: CTL_CODE: (DeviceType<<16) | (Access<<14) | (Function<<2) | Method
+                                                        // READ (METHOD_OUT_DIRECT = 2) => 0x00222016; WRITE (METHOD_IN_DIRECT = 1) => 0x00222015
+const IOCTL_COLINUX_VBLK_READ: u32 = 0x00222016; // 0x22<<16 | 0x805<<2 | 2
+const IOCTL_COLINUX_VBLK_WRITE: u32 = 0x00222015; // 0x22<<16 | 0x806<<2 | 1
 const IOCTL_COLINUX_VTTY_PUSH: u32 = 0x0022201C; // 0x22<<16 | 0x807<<2 (METHOD_BUFFERED)
 const IOCTL_COLINUX_VTTY_PULL: u32 = 0x00222020; // 0x22<<16 | 0x808<<2 (METHOD_BUFFERED)
 
@@ -26,9 +30,6 @@ impl Device {
         Ok(Self { reactor })
     }
 
-#[derive(Debug, Clone, Copy)]
-pub struct MapInfo { pub user_base: usize, pub kernel_base: u64, pub size: u64, pub ver: u32, pub flags: u32 }
-
     /// Map N pages of shared memory (synchronous helper with timeout). Returns mapping descriptor.
     pub fn map_shared_sync(&self, pages: u32, timeout: Duration) -> Result<MapInfo> {
         let (tx, rx) = bounded(1);
@@ -40,13 +41,21 @@ pub struct MapInfo { pub user_base: usize, pub kernel_base: u64, pub size: u64, 
             reply: tx,
         })?;
         let out = recv_with_timeout(rx, timeout)??;
-        if out.len() < 32 { anyhow::bail!("map_shared: short reply {}", out.len()); }
+        if out.len() < 32 {
+            anyhow::bail!("map_shared: short reply {}", out.len());
+        }
         let user_base = usize::from_le_bytes(out[0..8].try_into().unwrap());
         let kernel_base = u64::from_le_bytes(out[8..16].try_into().unwrap());
         let size = u64::from_le_bytes(out[16..24].try_into().unwrap());
         let ver = u32::from_le_bytes(out[24..28].try_into().unwrap());
         let flags = u32::from_le_bytes(out[28..32].try_into().unwrap());
-        Ok(MapInfo { user_base, kernel_base, size, ver, flags })
+        Ok(MapInfo {
+            user_base,
+            kernel_base,
+            size,
+            ver,
+            flags,
+        })
     }
 
     /// Run one scheduler tick with a budget (synchronous).
@@ -63,7 +72,11 @@ pub struct MapInfo { pub user_base: usize, pub kernel_base: u64, pub size: u64, 
     }
 
     /// Submit a virtual block I/O (async): returns a receiver you can await.
-    pub fn vblk_submit_async(&self, req: &[u8], out_capacity: usize) -> Result<Receiver<Result<Vec<u8>>>> {
+    pub fn vblk_submit_async(
+        &self,
+        req: &[u8],
+        out_capacity: usize,
+    ) -> Result<Receiver<Result<Vec<u8>>>> {
         let (tx, rx) = bounded(1);
         self.reactor.submit(IoctlRequest {
             code: IOCTL_COLINUX_VBLK_SUBMIT,
@@ -108,7 +121,12 @@ pub struct MapInfo { pub user_base: usize, pub kernel_base: u64, pub size: u64, 
         Ok(out)
     }
 
-    pub fn vblk_write_sync(&self, lba_sectors: u64, payload: &[u8], timeout: Duration) -> Result<()> {
+    pub fn vblk_write_sync(
+        &self,
+        lba_sectors: u64,
+        payload: &[u8],
+        timeout: Duration,
+    ) -> Result<()> {
         let len = payload.len() as u32;
         let mut hdr = Vec::with_capacity(16);
         hdr.extend_from_slice(&lba_sectors.to_le_bytes());
@@ -155,4 +173,13 @@ pub struct MapInfo { pub user_base: usize, pub kernel_base: u64, pub size: u64, 
 fn recv_with_timeout<T>(rx: Receiver<T>, timeout: Duration) -> Result<T> {
     rx.recv_timeout(timeout)
         .map_err(|_| anyhow::anyhow!("ioctl timeout"))
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MapInfo {
+    pub user_base: usize,
+    pub kernel_base: u64,
+    pub size: u64,
+    pub ver: u32,
+    pub flags: u32,
 }
