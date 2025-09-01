@@ -1,7 +1,7 @@
 param(
   [string]$Distro = "kali-linux",
   [string]$NetworkingMode = "mirrored",
-  [string[]]$OpenPorts = @('80','443','8080'),
+  [string[]]$OpenPorts = @(),
   [string]$Memory = "",       # e.g., 8GB (optional)
   [string]$Processors = ""    # e.g., 4 (optional)
 )
@@ -79,3 +79,4 @@ if ($OpenPorts.Count -gt 0) {
 
 Write-Host "Done. Launch your distro to complete first-time setup (user/password)."
 Write-Host "After that, services you run inside the distro will listen on the Windows host IP for the opened ports."
+
