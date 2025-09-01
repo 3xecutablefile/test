@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Wrapper to run the PowerShell setup with sensible defaults.
 # Usage:
-#   ./scripts/setup.sh [--repo URL] [--dir PATH] [--distro NAME] [--ports 22,80,443] [--open-web-ports] [--profiles Private,Domain] [--allow-from 10.0.0.0/8] [--memory 8GB] [--cpus 4]
+#   ./scripts/setup.sh [--repo URL] [--dir PATH] [--distro NAME] [--ports 22,80,443] [--open-web-ports] [--public] [--profiles Private,Domain] [--allow-from 10.0.0.0/8] [--memory 8GB] [--cpus 4]
 
 if [[ -z "${OS:-}" && "$(uname -s)" != *NT* && "$(uname -s)" != MINGW* && "$(uname -s)" != CYGWIN* ]]; then
   echo "This setup must be run on Windows (PowerShell available)." >&2
@@ -17,6 +17,7 @@ DIR=""
 DISTRO="kali-linux"
 PORTS=""
 OPEN_WEB_PORTS=false
+PUBLIC=false
 PROFILES="Private,Domain"
 ALLOW_FROM=""
 MEM=""
@@ -29,6 +30,7 @@ while [[ $# -gt 0 ]]; do
     --distro) DISTRO="$2"; shift 2;;
     --ports) PORTS="$2"; shift 2;;
     --open-web-ports) OPEN_WEB_PORTS=true; shift 1;;
+    --public) PUBLIC=true; shift 1;;
     --profiles) PROFILES="$2"; shift 2;;
     --allow-from) ALLOW_FROM="$2"; shift 2;;
     --memory) MEM="$2"; shift 2;;
@@ -50,6 +52,7 @@ if [[ -n "$REPO" ]]; then ARGS+=( -RepoUrl "$REPO" ); fi
 if [[ -n "$DIR" ]]; then ARGS+=( -InstallDir "$DIR" ); fi
 if [[ -n "$PORTS" ]]; then ARGS+=( -OpenPorts "$PORTS" ); fi
 if [[ "$OPEN_WEB_PORTS" == true ]]; then ARGS+=( -OpenWebPorts ); fi
+if [[ "$PUBLIC" == true ]]; then ARGS+=( -Public ); fi
 if [[ -n "$PROFILES" ]]; then ARGS+=( -Profiles "$PROFILES" ); fi
 if [[ -n "$ALLOW_FROM" ]]; then ARGS+=( -AllowFrom "$ALLOW_FROM" ); fi
 if [[ -n "$MEM" ]]; then ARGS+=( -Memory "$MEM" ); fi
