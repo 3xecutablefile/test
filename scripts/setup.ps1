@@ -1,13 +1,10 @@
 param(
   [string]$Distro = "kali-linux",
   [string]$NetworkingMode = "mirrored",
-  [string[]]$OpenPorts = @(),          # secure default: no inbound ports opened
-  [string]$Profiles = "Private,Domain", # firewall profile scope
-  [string]$AllowFrom = "",            # optional CIDR/CIDRs to restrict remote sources
-  [switch]$OpenWebPorts,               # convenience: open 80,443,8080
-  [string]$Memory = "",               # e.g., 8GB (optional)
-  [string]$Processors = "",           # e.g., 4 (optional)
-  [string]$RepoUrl = "",              # Optional: clone this repo first
+  [string[]]$OpenPorts = @('80','443','8080'),
+  [string]$Memory = "",       # e.g., 8GB (optional)
+  [string]$Processors = "",   # e.g., 4 (optional)
+  [string]$RepoUrl = "",      # Optional: clone this repo first
   [string]$InstallDir = "$env:USERPROFILE\\colinux2" # Where to clone if RepoUrl set
 )
 
@@ -84,42 +81,17 @@ Write-Host "Applied networking + resource config to $wslcfg"
 Write-Host "Stopping running instances to apply config..."
 & wsl.exe --shutdown | Out-Null
 
-# Inbound firewall rules (secure defaults)
-function Add-CoLinuxFirewallRules {
-  param([string[]]$Ports, [string]$Profiles, [string]$AllowFrom)
-  if ($Ports.Count -eq 0) { return }
-  $displayPrefix = "coLinux2 inbound"
-  foreach ($p in $Ports) {
-    if ($p -notmatch '^[0-9]+$') { continue }
-    $display = "$displayPrefix port $p"
-    $args = @{
-      DisplayName = $display
-      Direction   = 'Inbound'
-      Action      = 'Allow'
-      Enabled     = 'True'
-      Profile     = $Profiles
-      Protocol    = 'TCP'
-      LocalPort   = $p
-    }
-    if ($AllowFrom -and $AllowFrom.Trim() -ne '') { $args['RemoteAddress'] = $AllowFrom }
-    try {
-      New-NetFirewallRule @args | Out-Null
-    } catch {
-      Write-Warning "Firewall rule failed for port $p: $($_.Exception.Message)"
+if ($OpenPorts.Count -gt 0) {
+  foreach ($p in $OpenPorts) {
+    if ($p -match '^[0-9]+$') {
+      $ruleName = "coLinux2 inbound port $p"
+      try {
+        netsh advfirewall firewall add rule name="$ruleName" dir=in action=allow protocol=TCP localport=$p | Out-Null
+      } catch {}
     }
   }
-  Write-Host "Added Windows Firewall rules (profiles: $Profiles) for ports: $($Ports -join ', ')"
+  Write-Host "Added Windows Firewall rules for ports: $($OpenPorts -join ', ')"
 }
-
-function Remove-CoLinuxFirewallRules {
-  $rules = Get-NetFirewallRule -DisplayName 'coLinux2 inbound*' -ErrorAction SilentlyContinue
-  if ($rules) { $rules | Remove-NetFirewallRule }
-}
-
-$effectivePorts = @()
-if ($OpenWebPorts) { $effectivePorts = @('80','443','8080') }
-if ($OpenPorts.Count -gt 0) { $effectivePorts = $OpenPorts }
-Add-CoLinuxFirewallRules -Ports $effectivePorts -Profiles $Profiles -AllowFrom $AllowFrom
 
 Write-Host "Creating PowerShell command shortcut: ex3cutableLinux"
 try {
