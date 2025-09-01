@@ -6,7 +6,18 @@ Rust-first cooperative Linux on Windows: kernel driver (vblk/vtty), IOCP-based d
 
 Project link: https://github.com/3xecutablefile/test
 
-Quickstart (TL;DR)
+One‑Shot Setup (TL;DR)
+- From a Windows shell, run: `scripts/setup.sh`
+- Options:
+  - `--open-web-ports` to allow inbound 80/443/8080 on Private/Domain profiles
+  - `--public` to include the Public profile (use cautiously on public Wi‑Fi)
+  - `--allow-from 10.0.0.0/8,192.168.0.0/16` to restrict allowed source ranges
+  - `--memory 8GB --cpus 4` to set resource limits
+- After setup, launch the Linux environment any time: `ex3cutableLinux`
+- If your network blocks inbound, expose a port externally for testing:
+  - `scripts/tunnel.ps1 -Provider cloudflare -Port 8080` (or `tailscale`)
+
+Quickstart (manual)
 - Open an elevated PowerShell (Run as Administrator).
 - Clone: `git clone https://github.com/3xecutablefile/test.git && cd test`
 - Enable dev test signing: `./scripts/sign-test-cert.ps1` (reboot if prompted)
@@ -68,6 +79,12 @@ Smoke tests
   - `RUST_LOG=info` then run the daemon; you should see mapping + steady ticks
   - Optional: `daemon\target\release\smoke.exe config\colinux.yaml` (map/ping + 4 KiB read/write test)
 
+Host‑IP access (inbound)
+- Some networks allow inbound access to services you run on your PC; others block it (client isolation, captive portals).
+- To allow inbound on common web ports (when permitted), run the one‑shot setup with `--open-web-ports`.
+- If inbound is blocked on your network, expose a single port with the helper:
+  - `scripts/tunnel.ps1 -Provider cloudflare -Port 8080`
+
 Help & scripts
 - `scripts/sign-test-cert.ps1`: create a local test cert and enable test signing
 - `scripts/install-driver.ps1`: install the driver `.inf` via `pnputil`
@@ -110,4 +127,3 @@ Contributing (commit & push)
   - `git commit -m "feat: describe your change"`
   - `git push -u origin feature/your-change`
 - Open a Pull Request on GitHub.
-
