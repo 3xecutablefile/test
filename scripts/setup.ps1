@@ -3,7 +3,9 @@ param(
   [string]$NetworkingMode = "mirrored",
   [string[]]$OpenPorts = @('80','443','8080'),
   [string]$Memory = "",       # e.g., 8GB (optional)
-  [string]$Processors = ""    # e.g., 4 (optional)
+  [string]$Processors = "",   # e.g., 4 (optional)
+  [string]$RepoUrl = "",      # Optional: clone this repo first
+  [string]$InstallDir = "$env:USERPROFILE\\colinux2" # Where to clone if RepoUrl set
 )
 
 Set-StrictMode -Version Latest
@@ -25,6 +27,20 @@ function Ensure-Admin {
 }
 
 Ensure-Admin
+
+if ($RepoUrl -and $RepoUrl.Trim() -ne '') {
+  Write-Host "Cloning repository from $RepoUrl to $InstallDir ..."
+  if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Error "Git not found on PATH. Please install Git for Windows and retry."
+    exit 1
+  }
+  if (-not (Test-Path $InstallDir)) { New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null }
+  if (-not (Test-Path (Join-Path $InstallDir '.git'))) {
+    git clone $RepoUrl $InstallDir
+  } else {
+    Write-Host "Repository already present in $InstallDir; skipping clone."
+  }
+}
 
 Write-Host "Installing prerequisites (may require reboot prompts)..."
 try {
@@ -77,5 +93,29 @@ if ($OpenPorts.Count -gt 0) {
   Write-Host "Added Windows Firewall rules for ports: $($OpenPorts -join ', ')"
 }
 
-Write-Host "Done. Launch your distro to complete first-time setup (user/password)."
-Write-Host "After that, services you run inside the distro will listen on the Windows host IP for the opened ports."
+Write-Host "Creating PowerShell command shortcut: ex3cutableLinux"
+try {
+  $profilePath = $PROFILE
+  $profileDir = Split-Path -Parent $profilePath
+  if (-not (Test-Path $profileDir)) { New-Item -ItemType Directory -Path $profileDir -Force | Out-Null }
+  if (-not (Test-Path $profilePath)) { New-Item -ItemType File -Path $profilePath -Force | Out-Null }
+  $aliasBlock = @"
+function ex3cutableLinux {
+  param([Parameter(ValueFromRemainingArguments=
+    `$true)] [string[]] `$Args)
+  & wsl.exe -d ""$Distro"" @Args
+}
+"@
+  $existing = Get-Content -Path $profilePath -Raw
+  if ($existing -notmatch 'function\s+ex3cutableLinux') {
+    Add-Content -Path $profilePath -Value "`n# coLinux alias`n$aliasBlock"
+  }
+  Write-Host "Added alias to $profilePath. Restart PowerShell to use it."
+} catch {
+  Write-Warning "Could not create PowerShell alias: $($_.Exception.Message)"
+}
+
+Write-Host "Starting the Linux environment: $Distro (first run will prompt for user setup)."
+try { & wsl.exe -d $Distro } catch {}
+
+Write-Host "Setup complete. Next time, run 'ex3cutableLinux' in PowerShell to launch."
