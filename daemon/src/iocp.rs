@@ -1,5 +1,3 @@
-#![cfg(windows)]
-
 //! Minimal IOCP + overlapped DeviceIoControl reactor for coLinux 2.0.
 //! Safe(ish) wrapper: all unsafe is concentrated and documented.
 
@@ -11,7 +9,7 @@ use std::time::Duration;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{CloseHandle, GetLastError, BOOL, HANDLE};
 use windows::Win32::Storage::FileSystem::{
-    CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_FLAGS_AND_ATTRIBUTES, FILE_FLAG_OVERLAPPED,
+    CreateFileW, FILE_ATTRIBUTE_NORMAL, FILE_FLAG_OVERLAPPED, FILE_FLAGS_AND_ATTRIBUTES,
     FILE_SHARE_READ, FILE_SHARE_WRITE, GENERIC_READ, GENERIC_WRITE, OPEN_EXISTING,
 };
 use windows::Win32::System::IO::{
@@ -22,9 +20,9 @@ const COMPLETION_KEY_IOCTL: usize = 1;
 
 pub struct IoctlRequest {
     pub code: u32,
-    pub inbuf: Option<Vec<u8>>,       // parameters (METHOD_* params)
-    pub out_capacity: usize, // size of out/other buffer (MDL target for direct I/O, or read buffer)
-    pub prefill_out: Option<Vec<u8>>, // if provided, initializes out buffer (e.g., write payload for METHOD_IN_DIRECT)
+    pub inbuf: Option<Vec<u8>>,      // parameters (METHOD_* params)
+    pub out_capacity: usize,         // size of out/other buffer (MDL target for direct I/O, or read buffer)
+    pub prefill_out: Option<Vec<u8>>,// if provided, initializes out buffer (e.g., write payload for METHOD_IN_DIRECT)
     pub reply: Sender<Result<Vec<u8>>>,
 }
 
@@ -54,17 +52,13 @@ impl Reactor {
             )
         };
         if dev.is_invalid() {
-            bail!("CreateFileW({}) failed (last={:?})", path, unsafe {
-                GetLastError()
-            });
+            bail!("CreateFileW({}) failed (last={:?})", path, unsafe { GetLastError() });
         }
 
         let iocp = unsafe { CreateIoCompletionPort(dev, HANDLE(0), COMPLETION_KEY_IOCTL, 0) };
         if iocp.0 == 0 {
             unsafe { CloseHandle(dev) };
-            bail!("CreateIoCompletionPort failed (last={:?})", unsafe {
-                GetLastError()
-            });
+            bail!("CreateIoCompletionPort failed (last={:?})", unsafe { GetLastError() });
         }
 
         let (tx, rx) = crossbeam_channel::unbounded::<IoctlRequest>();
@@ -104,25 +98,13 @@ struct OverlappedBox {
     reply: Sender<Result<Vec<u8>>>,
 }
 impl OverlappedBox {
-    fn new(
-        inbuf: Option<Vec<u8>>,
-        out_capacity: usize,
-        prefill_out: Option<Vec<u8>>,
-        reply: Sender<Result<Vec<u8>>>,
-    ) -> Box<Self> {
+    fn new(inbuf: Option<Vec<u8>>, out_capacity: usize, prefill_out: Option<Vec<u8>>, reply: Sender<Result<Vec<u8>>>) -> Box<Self> {
         let mut out = vec![0u8; out_capacity];
         if let Some(mut p) = prefill_out {
-            if p.len() != out_capacity {
-                p.resize(out_capacity, 0);
-            }
+            if p.len() != out_capacity { p.resize(out_capacity, 0); }
             out.copy_from_slice(&p);
         }
-        Box::new(Self {
-            ov: OVERLAPPED::default(),
-            inbuf: inbuf.unwrap_or_default(),
-            out,
-            reply,
-        })
+        Box::new(Self { ov: OVERLAPPED::default(), inbuf: inbuf.unwrap_or_default(), out, reply })
     }
 }
 
@@ -136,8 +118,7 @@ fn spawn_worker(dev: HANDLE, iocp: HANDLE, rx: Receiver<IoctlRequest>) -> thread
             match rx.recv_timeout(Duration::from_millis(1)) {
                 Ok(req) => unsafe {
                     // Box our overlapped + buffers + channel
-                    let mut obox =
-                        OverlappedBox::new(req.inbuf, req.out_capacity, req.prefill_out, req.reply);
+                    let mut obox = OverlappedBox::new(req.inbuf, req.out_capacity, req.prefill_out, req.reply);
                     let p_ov: *mut OVERLAPPED = addr_of_mut!(obox.ov);
 
                     // Prepare in/out pointers
@@ -203,9 +184,7 @@ fn spawn_worker(dev: HANDLE, iocp: HANDLE, rx: Receiver<IoctlRequest>) -> thread
                         let _ = obox.reply.send(Ok(obox.out));
                     } else {
                         let err = GetLastError().0;
-                        let _ = obox
-                            .reply
-                            .send(Err(anyhow!("ioctl completion failed: {err}")));
+                        let _ = obox.reply.send(Err(anyhow!("ioctl completion failed: {err}")));
                     }
                     // Box drops here
                 }

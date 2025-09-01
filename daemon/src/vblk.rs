@@ -1,10 +1,8 @@
-#![cfg(windows)]
-
 //! VBLK ring + dispatcher over IOCP-backed DeviceIoControl.
 //! This is a queueing layer that enforces queue_depth and tracks completions.
 
-use crossbeam_channel::{Receiver, TryRecvError};
 use std::collections::{HashMap, VecDeque};
+use crossbeam_channel::{Receiver, TryRecvError};
 use uuid::Uuid;
 
 use anyhow::Result;
@@ -78,24 +76,18 @@ impl<'a> Vblk<'a> {
                         let (tx, ch) = crossbeam_channel::bounded(1);
                         // Submit via direct read IOCTL using Device wrapper, but adapt to existing async pattern by spawning a lightweight task thread.
                         let dev = self.dev;
-                        let lba = req.lba;
-                        let len = req.len;
+                        let lba = req.lba; let len = req.len;
                         std::thread::spawn(move || {
-                            let res =
-                                dev.vblk_read_sync(lba, len, std::time::Duration::from_secs(2));
+                            let res = dev.vblk_read_sync(lba, len, std::time::Duration::from_secs(2));
                             let _ = tx.send(res);
                         });
                         ch
                     }
                     Op::Write => {
                         let (tx, ch) = crossbeam_channel::bounded(1);
-                        let dev = self.dev;
-                        let lba = req.lba;
-                        let buf = req.buf.clone();
+                        let dev = self.dev; let lba = req.lba; let buf = req.buf.clone();
                         std::thread::spawn(move || {
-                            let res = dev
-                                .vblk_write_sync(lba, &buf, std::time::Duration::from_secs(2))
-                                .map(|_| Vec::new());
+                            let res = dev.vblk_write_sync(lba, &buf, std::time::Duration::from_secs(2)).map(|_| Vec::new());
                             let _ = tx.send(res);
                         });
                         ch

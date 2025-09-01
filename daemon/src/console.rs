@@ -1,5 +1,3 @@
-#![cfg(windows)]
-
 use crate::device::Device;
 use anyhow::Result;
 use std::io::{Read, Write};
@@ -17,12 +15,7 @@ pub struct ConsoleBridge<'a> {
 
 impl<'a> ConsoleBridge<'a> {
     pub fn new(dev: &'a Device) -> Self {
-        Self {
-            dev,
-            stop: Arc::new(AtomicBool::new(false)),
-            in_thr: None,
-            out_thr: None,
-        }
+        Self { dev, stop: Arc::new(AtomicBool::new(false)), in_thr: None, out_thr: None }
     }
 
     pub fn start(&mut self) -> Result<()> {
@@ -42,9 +35,7 @@ impl<'a> ConsoleBridge<'a> {
                                 Ok(_) => thread::sleep(Duration::from_millis(2)),
                                 Err(_) => thread::sleep(Duration::from_millis(10)),
                             }
-                            if stop_in.load(Ordering::Relaxed) {
-                                break;
-                            }
+                            if stop_in.load(Ordering::Relaxed) { break; }
                         }
                     }
                     Err(_) => thread::sleep(Duration::from_millis(10)),
@@ -76,11 +67,8 @@ impl<'a> ConsoleBridge<'a> {
 
     pub fn stop(mut self) {
         self.stop.store(true, Ordering::Relaxed);
-        if let Some(h) = self.in_thr.take() {
-            let _ = h.join();
-        }
-        if let Some(h) = self.out_thr.take() {
-            let _ = h.join();
-        }
+        if let Some(h) = self.in_thr.take() { let _ = h.join(); }
+        if let Some(h) = self.out_thr.take() { let _ = h.join(); }
     }
 }
+

@@ -6,3 +6,4 @@ pub fn init() {
         .unwrap_or_else(|_| EnvFilter::new("info"));
     fmt().with_env_filter(filter).init();
 }
+

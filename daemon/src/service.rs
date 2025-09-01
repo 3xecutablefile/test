@@ -1,20 +1,12 @@
-#![cfg(windows)]
-
 //! Windows Service wrapper for coLinux 2.0 (SCM install/uninstall, event log).
 use std::ffi::OsString;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc, OnceLock,
-};
+use std::sync::{atomic::{AtomicBool, Ordering}, Arc, OnceLock};
 use std::time::Duration;
 
 use anyhow::Result;
 use windows_service::{
     define_windows_service, eventlog,
-    service::{
-        ServiceControl, ServiceControlAccept, ServiceErrorControl, ServiceExitCode, ServiceInfo,
-        ServiceStartType, ServiceState, ServiceType,
-    },
+    service::{ServiceControl, ServiceControlAccept, ServiceExitCode, ServiceInfo, ServiceStartType, ServiceState, ServiceType, ServiceErrorControl},
     service_control_handler::{self, ServiceControlHandlerResult},
     service_dispatcher,
     service_manager::{ServiceManager, ServiceManagerAccess},
@@ -53,8 +45,7 @@ pub fn install_service(bin_path: &str) -> Result<()> {
 
 pub fn uninstall_service() -> Result<()> {
     let mgr = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)?;
-    if let Ok(svc) = mgr.open_service(SERVICE_NAME, windows_service::service::ServiceAccess::all())
-    {
+    if let Ok(svc) = mgr.open_service(SERVICE_NAME, windows_service::service::ServiceAccess::all()) {
         let _ = svc.stop();
         svc.delete()?;
     }
@@ -77,21 +68,16 @@ where
 define_windows_service!(ffi_service_main, service_main);
 
 fn service_main(_args: Vec<OsString>) {
-    let _ = eventlog::register(
-        EVENT_SOURCE,
-        &std::env::current_exe().unwrap().to_string_lossy(),
-    );
+    let _ = eventlog::register(EVENT_SOURCE, &std::env::current_exe().unwrap().to_string_lossy());
 
-    let status_handle =
-        service_control_handler::register(SERVICE_NAME, move |control| match control {
-            ServiceControl::Stop | ServiceControl::Shutdown => {
-                STOP_FLAG.store(true, Ordering::SeqCst);
-                ServiceControlHandlerResult::NoError
-            }
-            ServiceControl::Interrogate => ServiceControlHandlerResult::NoError,
-            _ => ServiceControlHandlerResult::NotImplemented,
-        })
-        .expect("register service ctrl handler");
+    let status_handle = service_control_handler::register(SERVICE_NAME, move |control| match control {
+        ServiceControl::Stop | ServiceControl::Shutdown => {
+            STOP_FLAG.store(true, Ordering::SeqCst);
+            ServiceControlHandlerResult::NoError
+        }
+        ServiceControl::Interrogate => ServiceControlHandlerResult::NoError,
+        _ => ServiceControlHandlerResult::NotImplemented,
+    }).expect("register service ctrl handler");
 
     let mut status = windows_service::service::ServiceStatus {
         service_type: ServiceType::OWN_PROCESS,
@@ -111,11 +97,7 @@ fn service_main(_args: Vec<OsString>) {
         .expect("service runner not set; maybe_run_as_service not called");
     let handle = std::thread::spawn(move || {
         if let Err(e) = (runner)() {
-            let _ = eventlog::write_event(
-                EVENT_SOURCE,
-                eventlog::EventType::Error,
-                &format!("Fatal: {e:?}"),
-            );
+            let _ = eventlog::write_event(EVENT_SOURCE, eventlog::EventType::Error, &format!("Fatal: {e:?}"));
         }
     });
 
@@ -140,3 +122,4 @@ fn service_main(_args: Vec<OsString>) {
     status.wait_hint = Duration::from_secs(0);
     let _ = status_handle.set_service_status(status);
 }
+

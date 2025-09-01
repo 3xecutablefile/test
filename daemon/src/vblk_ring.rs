@@ -1,7 +1,5 @@
-#![cfg(windows)]
-
 use crate::device::{Device, MapInfo};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use std::mem::size_of;
 use std::ptr::NonNull;
 
@@ -43,16 +41,11 @@ pub struct VblkRing<'a> {
 
 impl<'a> VblkRing<'a> {
     pub fn new(dev: &'a Device, map: MapInfo) -> Result<Self> {
-        if map.size as usize <= VBLK_DATA_OFF {
-            bail!("shared map too small for vblk ring region");
+        if map.size as usize <= VBLK_DATA_OFF + VBLK_DATA_MAX {
+            bail!("shared map too small for vblk ring");
         }
-        let base =
-            NonNull::new(map.user_base as *mut u8).ok_or_else(|| anyhow!("null map base"))?;
-        Ok(Self {
-            dev,
-            base,
-            size: map.size as usize,
-        })
+        let base = NonNull::new(map.user_base as *mut u8).ok_or_else(|| anyhow::anyhow!("null map base"))?;
+        Ok(Self { dev, base, size: map.size as usize })
     }
 
     unsafe fn ptr<T>(&self, off: usize) -> *mut T {
@@ -70,11 +63,7 @@ impl<'a> VblkRing<'a> {
                 // validate
                 let len = slot.len as usize;
                 let data_off = slot.data_off as usize;
-                if len == 0
-                    || (len & 511) != 0
-                    || len > VBLK_SLOT_DATA_STRIDE
-                    || data_off + len > (VBLK_SLOT_DATA_STRIDE * cap)
-                {
+                if len == 0 || (len & 511) != 0 || len > VBLK_SLOT_DATA_STRIDE || data_off + len > (VBLK_SLOT_DATA_STRIDE * cap) {
                     slot.status = ST_EINVAL;
                     ctrl.cons = ctrl.cons.wrapping_add(1);
                     continue;
@@ -84,22 +73,12 @@ impl<'a> VblkRing<'a> {
                 let data = core::slice::from_raw_parts_mut(data_ptr, len);
                 // service
                 let res = match slot.op {
-                    OP_READ => self
-                        .dev
-                        .vblk_read_sync(lba, slot.len, std::time::Duration::from_secs(2))
-                        .map(|out| {
-                            let n = out.len().min(len);
-                            data[..n].copy_from_slice(&out[..n]);
-                        }),
-                    OP_WRITE => self
-                        .dev
-                        .vblk_write_sync(lba, data, std::time::Duration::from_secs(2))
-                        .map(|_| {}),
-                    _ => {
-                        slot.status = ST_EINVAL;
-                        ctrl.cons = ctrl.cons.wrapping_add(1);
-                        continue;
-                    }
+                    OP_READ => self.dev.vblk_read_sync(lba, slot.len, std::time::Duration::from_secs(2)).map(|out| {
+                        let n = out.len().min(len);
+                        data[..n].copy_from_slice(&out[..n]);
+                    }),
+                    OP_WRITE => self.dev.vblk_write_sync(lba, data, std::time::Duration::from_secs(2)).map(|_| {}),
+                    _ => { slot.status = ST_EINVAL; ctrl.cons = ctrl.cons.wrapping_add(1); continue; }
                 };
                 slot.status = if res.is_ok() { ST_OK } else { ST_EIO };
                 ctrl.cons = ctrl.cons.wrapping_add(1);
