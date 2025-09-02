@@ -100,29 +100,55 @@ pub fn boot_kernel(opts: &BootOptions) -> Result<()> {
     // 6) Create one vCPU
     unsafe { WHvCreateVirtualProcessor(part, 0, 0).ok()?; }
 
-    // 7) Run loop (will exit immediately until register state is initialized)
-    let mut exit_ctx: WHV_RUN_VP_EXIT_CONTEXT = unsafe { std::mem::zeroed() };
-    let mut bytes_ret: u32 = 0;
-    let hr = unsafe {
-        WHvRunVirtualProcessor(
-            part,
-            0,
-            &mut exit_ctx as *mut _ as *mut c_void,
-            std::mem::size_of::<WHV_RUN_VP_EXIT_CONTEXT>() as u32,
-            &mut bytes_ret,
-        )
-    };
-    // Clean up immediately; we are only scaffolding
-    unsafe {
-        WHvDeletePartition(part);
+    // 7) Run loop: capture port I/O to print early serial (COM1 @ 0x3F8). This allows observing progress
+    let mut printed = 0usize;
+    loop {
+        let mut exit_ctx: WHV_RUN_VP_EXIT_CONTEXT = unsafe { std::mem::zeroed() };
+        let mut bytes_ret: u32 = 0;
+        let hr = unsafe {
+            WHvRunVirtualProcessor(
+                part,
+                0,
+                &mut exit_ctx as *mut _ as *mut c_void,
+                std::mem::size_of::<WHV_RUN_VP_EXIT_CONTEXT>() as u32,
+                &mut bytes_ret,
+            )
+        };
+        if !hr.is_ok() {
+            unsafe { WHvDeletePartition(part); }
+            return Err(anyhow!("WHvRunVirtualProcessor failed: 0x{:08x}", hr.0 as u32));
+        }
+        unsafe {
+            match exit_ctx.ExitReason {
+                WHV_RUN_VP_EXIT_REASON_X64_IO_PORT_ACCESS => {
+                    let io = exit_ctx.__bindgen_anon_1.X64IoPortAccess; // union view
+                    let port = io.PortNumber;
+                    let is_write = io.AccessInfo.IsWrite() != 0;
+                    // Data bytes are in io.Data[0..]
+                    if is_write && port == 0x3F8 { // COM1 THR
+                        let ch = io.__bindgen_anon_1.Data[0] as char;
+                        print!("{}", ch);
+                        let _ = std::io::Write::flush(&mut std::io::stdout());
+                        printed += 1;
+                    }
+                }
+                WHV_RUN_VP_EXIT_REASON_X64_HALT => {
+                    println!("[whp] guest halted ({} chars printed)", printed);
+                    break;
+                }
+                _ => {
+                    // Continue until we have a fully initialized CPU state
+                    // Avoid hot loop by yielding slightly
+                    std::thread::yield_now();
+                }
+            }
+        }
+        if printed > 0 && printed % 160 == 0 { tracing::debug!("serial progress", printed); }
+        // For now, limit runtime to avoid runaway loop without initialized guest
+        if printed > 1024 { break; }
     }
-
-    if hr.is_ok() {
-        println!("[whp] vcpu exited ({} bytes) reason={:?}", bytes_ret, unsafe { std::mem::transmute::<u32, u32>(exit_ctx.ExitReason) });
-        bail!("hypervisor skeleton ran; kernel boot not yet implemented");
-    } else {
-        Err(anyhow!("WHvRunVirtualProcessor failed: 0x{:08x}", hr.0 as u32))
-    }
+    unsafe { WHvDeletePartition(part); }
+    bail!("hypervisor PVH path not fully implemented: serial capture loop exited")
 }
 
 fn ensure_whp_present() -> Result<()> {

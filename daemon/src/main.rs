@@ -8,6 +8,7 @@ mod vblk_ring; // VBLK shared ring service
 mod console;   // VTTY console bridge
 #[cfg(windows)]
 mod hypervisor; // Experimental: WHP-based kernel runner
+mod profiles;  // YAML profiles for operator defaults
 // vtty via device.rs helpers
 
 use anyhow::Result;
