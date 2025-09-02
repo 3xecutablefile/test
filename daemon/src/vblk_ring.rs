@@ -6,6 +6,8 @@ use std::ptr::NonNull;
 const VBLK_RING_OFF: usize = 0x1000;
 const VBLK_DATA_OFF: usize = 0x4000;
 const VBLK_SLOT_DATA_STRIDE: usize = 128 * 1024;
+// Prototype maximum data window: matches mem.c default cap (8 slots)
+const VBLK_DATA_MAX: usize = VBLK_SLOT_DATA_STRIDE * 8;
 
 const OP_READ: u8 = 0;
 const OP_WRITE: u8 = 1;

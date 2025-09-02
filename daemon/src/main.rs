@@ -6,6 +6,8 @@ mod service;   // Windows Service wrapper
 mod vblk;      // VBLK ring/dispatcher
 mod vblk_ring; // VBLK shared ring service
 mod console;   // VTTY console bridge
+#[cfg(windows)]
+mod hypervisor; // Experimental: WHP-based kernel runner
 // vtty via device.rs helpers
 
 use anyhow::Result;
@@ -60,6 +62,43 @@ fn console_main(cfg_path: &str) -> Result<()> {
 }
 
 fn maybe_handle_cli() -> Option<anyhow::Result<()>> {
+    // Experimental kernel boot via WHP (Windows only)
+    #[cfg(windows)]
+    {
+        use hypervisor::{BootOptions, NetMode};
+        let mut args = std::env::args().peekable();
+        let _ = args.next(); // skip exe
+        let mut kernel: Option<String> = None;
+        let mut initrd: Option<String> = None;
+        let mut cmdline: Option<String> = None;
+        let mut net_mode: NetMode = NetMode::Stealth;
+        while let Some(a) = args.next() {
+            match a.as_str() {
+                "--kernel" => kernel = args.next(),
+                "--initrd" => initrd = args.next(),
+                "--cmdline" => cmdline = args.next(),
+                "--net" => {
+                    if let Some(v) = args.next() {
+                        net_mode = match v.as_str() {
+                            "stealth" => NetMode::Stealth,
+                            "passthrough" => NetMode::Passthrough,
+                            other => {
+                                eprintln!("Unknown --net mode: {} (use 'stealth' or 'passthrough')", other);
+                                NetMode::Stealth
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        if let Some(k) = kernel {
+            crate::logging::init();
+            let opts = BootOptions { bzimage: &k, initrd: initrd.as_deref(), cmdline: cmdline.as_deref(), net: net_mode };
+            return Some(hypervisor::boot_kernel(&opts));
+        }
+    }
+
     if std::env::args().any(|a| a == "--install") {
         let bin = std::env::current_exe().unwrap().to_string_lossy().to_string();
         return Some(service::install_service(&bin).map(|_| {
@@ -79,15 +118,24 @@ fn main() -> Result<()> {
         return res;
     }
 
-    let cfg_path = std::env::args()
-        .nth(1)
-        .unwrap_or_else(|| "config/colinux.yaml".into());
+    let cfg_path = std::env::args().nth(1);
+
+    // If no args, offer WHP interactive operator console (Windows only).
+    #[cfg(windows)]
+    {
+        if std::env::args().len() == 1 {
+            logging::init();
+            return hypervisor::run_operator_menu();
+        }
+    }
+
+    let cfg_path = cfg_path.unwrap_or_else(|| "config/colinux.yaml".into());
 
     // service mode?
     let cfg_owned = cfg_path.clone();
     if service::maybe_run_as_service(move || console_main(&cfg_owned))? {
         return Ok(());
     }
-    // console mode
+    // console mode (cooperative path)
     console_main(&cfg_path)
 }

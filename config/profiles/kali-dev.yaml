@@ -1,10 +1,9 @@
 # Example profile; copy/modify for local setups
 memory_mb: 4096
 ringbuf_mb: 128
-vblk_backing: "D:\\VMs\\kali-rootfs.vhdx"
+vblk_backing: "D:\\VMs\\kali-rootfs-amd64.img"
 vblk_queue_depth: 256
 vnet_mode: "nat"
 console_mode: "winpty"
 shared: { host_path: "D:\\VMs\\shared", guest_path: "/mnt/win" }
 tick_budget: 8000
-

@@ -12,7 +12,7 @@ pub struct SharedMount {
 pub struct Config {
     pub memory_mb: u32,
     pub ringbuf_mb: u32,
-    pub vblk_backing: String,    // e.g. C:\\KaliSync\\kali-rootfs.vhdx
+    pub vblk_backing: String,    // e.g. C:\\KaliSync\\kali-rootfs-amd64.img
     pub vblk_queue_depth: u32,
     pub vnet_mode: String,       // "bridge" | "nat"
     pub console_mode: String,    // "winpty"

@@ -26,6 +26,10 @@ struct colx_ring_hdr {
 #define COLX_VBLK_RING_OFF   0x1000
 #define COLX_VBLK_DATA_OFF   0x4000
 #define COLX_VBLK_SLOT_DATA_STRIDE (128 * 1024)
+/* Prototype ring capacity used by initial host mapping (see mem.c ctrl->cap = 8) */
+#define COLX_VBLK_RING_CAP   8
+/* Maximum contiguous data area usable by the prototype */
+#define COLX_VBLK_DATA_MAX   (COLX_VBLK_SLOT_DATA_STRIDE * COLX_VBLK_RING_CAP)
 
 /* VBLK opcodes */
 #define COLX_VBLK_OP_READ   0

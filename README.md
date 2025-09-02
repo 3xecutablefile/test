@@ -28,6 +28,21 @@ Quickstart (manual)
 - Run daemon (console): `..\daemon\target\release\colinux-daemon.exe ..\config\colinux.yaml`
 - Or install service: `..\scripts\install-service.ps1` then `..\scripts\start-daemon.ps1`
 
+Experimental: pure kernel (WHP)
+- This adds a Windows Hypervisor Platform (Hyper-V) path to eventually boot a real Linux kernel.
+- Requirements: Virtualization enabled in BIOS; Windows Features → “Hyper-V Platform” or “Windows Hypervisor Platform”.
+- Usage (operator console; skeleton only):
+  - Run with no args: `./daemon/target/release/colinux-daemon.exe`
+  - Select PVH/OVMF and Stealth/Passthrough, then enter kernel/initrd/cmdline.
+  - You should see a WHP run/exit message; full kernel init is in progress.
+  - This is separate from the cooperative path and won’t affect vblk/vtty.
+
+Networking (WHP guest, experimental)
+- Toggle runtime backend:
+  - Stealth: `--net stealth` (shared‑IP via slirp/host‑socket proxy; no new MAC)
+  - Passthrough: `--net passthrough` (L2 presence via TAP/USB NIC)
+- See `docs/hypervisor-net.md` for the architecture and roadmap.
+
 Install (Windows 10/11 on Intel/AMD)
 - Requirements:
   - Windows 10 1809+ (for ConPTY) or Windows 11
