@@ -11,7 +11,7 @@ mod hypervisor; // Experimental: WHP-based kernel runner
 mod profiles;  // YAML profiles for operator defaults
 // vtty via device.rs helpers
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use std::time::{Duration, Instant};
 use vblk::Vblk;
 
@@ -101,7 +101,10 @@ fn maybe_handle_cli() -> Option<anyhow::Result<()>> {
     }
 
     if std::env::args().any(|a| a == "--install") {
-        let bin = std::env::current_exe().unwrap().to_string_lossy().to_string();
+        let bin = match std::env::current_exe().context("failed to get current executable path") {
+            Ok(p) => p.to_string_lossy().to_string(),
+            Err(e) => return Some(Err(e)),
+        };
         return Some(service::install_service(&bin).map(|_| {
             println!("Installed service coLinux2");
         }));
@@ -114,7 +117,7 @@ fn maybe_handle_cli() -> Option<anyhow::Result<()>> {
     None
 }
 
-fn main() -> Result<()> {
+fn run() -> Result<()> {
     if let Some(res) = maybe_handle_cli() {
         return res;
     }
@@ -130,7 +133,7 @@ fn main() -> Result<()> {
         }
     }
 
-    let cfg_path = cfg_path.unwrap_or_else(|| "config/colinux.yaml".into());
+    let cfg_path = cfg_path.ok_or_else(|| anyhow::anyhow!("missing configuration file path"))?;
 
     // service mode?
     let cfg_owned = cfg_path.clone();
@@ -139,4 +142,11 @@ fn main() -> Result<()> {
     }
     // console mode (cooperative path)
     console_main(&cfg_path)
+}
+
+fn main() {
+    if let Err(err) = run() {
+        eprintln!("{err:?}");
+        std::process::exit(1);
+    }
 }
